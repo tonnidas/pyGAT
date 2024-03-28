@@ -1,6 +1,3 @@
-from __future__ import division
-from __future__ import print_function
-
 import os
 import glob
 import time
@@ -13,11 +10,13 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 
-from utils import load_data, accuracy
+from data import *
+from utils import *
 from models import GAT, SpGAT
 
 # Training settings
 parser = argparse.ArgumentParser()
+parser.add_argument('--dataset', default=None, help='Name of the dataset.')
 parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
 parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
 parser.add_argument('--sparse', action='store_true', default=False, help='GAT with sparse version or not.')
@@ -41,7 +40,33 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
 # Load data
-adj, features, labels, idx_train, idx_val, idx_test = load_data()
+if args.dataset is None:
+    adj, features, labels, idx_train, idx_val, idx_test = load_data()
+else:
+    adj, features, labels, idx_train, idx_val, idx_test = load_data_gcn(args.dataset)
+
+print("adj.shape =", adj.shape)
+print("features.shape =", features.shape)
+print("labels.shape =", labels.shape)
+print("idx_train.shape =", idx_train.shape)
+print("idx_val.shape =", idx_val.shape)
+print("idx_test.shape =", idx_test.shape)
+
+# add self loop
+adj[adj > 0], adj[adj < 0] = 1, 0
+adj = adj + sp.eye(adj.shape[0])
+
+# normalize
+features = normalize_features(features)
+adj = normalize_adj(adj)
+
+# convert to torch tensor
+adj = torch.FloatTensor(np.array(adj.todense()))
+features = torch.FloatTensor(np.array(features.todense()))
+labels = torch.LongTensor(labels)
+idx_train = torch.LongTensor(idx_train)
+idx_val = torch.LongTensor(idx_val)
+idx_test = torch.LongTensor(idx_test)
 
 # Model and optimizer
 if args.sparse:
@@ -58,9 +83,8 @@ else:
                 dropout=args.dropout, 
                 nheads=args.nb_heads, 
                 alpha=args.alpha)
-optimizer = optim.Adam(model.parameters(), 
-                       lr=args.lr, 
-                       weight_decay=args.weight_decay)
+
+optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
 if args.cuda:
     model.cuda()
@@ -70,9 +94,6 @@ if args.cuda:
     idx_train = idx_train.cuda()
     idx_val = idx_val.cuda()
     idx_test = idx_test.cuda()
-
-features, adj, labels = Variable(features), Variable(adj), Variable(labels)
-
 
 def train(epoch):
     t = time.time()
@@ -101,15 +122,14 @@ def train(epoch):
 
     return loss_val.data.item()
 
-
 def compute_test():
     model.eval()
     output = model(features, adj)
     loss_test = F.nll_loss(output[idx_test], labels[idx_test])
     acc_test = accuracy(output[idx_test], labels[idx_test])
     print("Test set results:",
-          "loss= {:.4f}".format(loss_test.data.item()),
-          "accuracy= {:.4f}".format(acc_test.data.item()))
+          "loss = {:.4f}".format(loss_test.data.item()),
+          "accuracy = {:.4f}".format(acc_test.data.item()))
 
 # Train model
 t_total = time.time()

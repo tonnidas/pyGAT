@@ -30,19 +30,11 @@ class SpGAT(nn.Module):
         super(SpGAT, self).__init__()
         self.dropout = dropout
 
-        self.attentions = [SpGraphAttentionLayer(nfeat, 
-                                                 nhid, 
-                                                 dropout=dropout, 
-                                                 alpha=alpha, 
-                                                 concat=True) for _ in range(nheads)]
+        self.attentions = [SpGraphAttentionLayer(nfeat, nhid, dropout=dropout, alpha=alpha, concat=True) for _ in range(nheads)]
         for i, attention in enumerate(self.attentions):
             self.add_module('attention_{}'.format(i), attention)
 
-        self.out_att = SpGraphAttentionLayer(nhid * nheads, 
-                                             nclass, 
-                                             dropout=dropout, 
-                                             alpha=alpha, 
-                                             concat=False)
+        self.out_att = SpGraphAttentionLayer(nhid * nheads, nclass, dropout=dropout, alpha=alpha, concat=False)
 
     def forward(self, x, adj):
         x = F.dropout(x, self.dropout, training=self.training)
