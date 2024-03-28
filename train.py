@@ -16,6 +16,7 @@ from models import GAT, SpGAT
 
 # Training settings
 parser = argparse.ArgumentParser()
+parser.add_argument('--aggregate', action='store_true', default=False, help='Use aggregated features.')
 parser.add_argument('--dataset', default=None, help='Name of the dataset.')
 parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables CUDA training.')
 parser.add_argument('--fastmode', action='store_true', default=False, help='Validate during training pass.')
@@ -56,9 +57,12 @@ print("idx_test.shape =", idx_test.shape)
 adj[adj > 0], adj[adj < 0] = 1, 0
 adj = adj + sp.eye(adj.shape[0])
 
-# normalize
-features = normalize_features(features)
-adj = normalize_adj(adj)
+if args.aggregate:
+    features = normalized_aggregated_features(features, adj)
+    adj = normalize_adj(adj)
+else:
+    features = normalize_features(features)
+    adj = normalize_adj(adj)
 
 # convert to torch tensor
 adj = torch.FloatTensor(np.array(adj.todense()))
