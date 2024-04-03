@@ -26,9 +26,9 @@ def accuracy(output, labels):
     return correct / len(labels)
 
 def normalized_aggregated_features(features, adj):
-    features_adj = adj @ features
-    features_sim = similarity_matrix(adj) @ features
-    features_triangles = count_polygons(adj, 3) @ features
+    features_adj = normalize_adj(adj) @ features
+    features_sim = normalize_adj(similarity_matrix(adj)) @ features
+    features_triangles = normalize_adj(count_polygons(adj, 3)) @ features
     
     return sp.hstack((normalize_features(features), 
                           normalize_features(features_adj),
